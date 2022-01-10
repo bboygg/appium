@@ -123,7 +123,7 @@
     "through2": "4.0.2",
     "type-fest": "2.8.0",
     "validate.js": "0.13.1",
-    "webdriverio": "6.12.1",
+    "webdriverio": "7.16.13",
     "yaml-js": "0.3.1"
   },
   "engines": {
