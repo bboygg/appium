@@ -1,3 +1,5 @@
+// @ts-check
+
 import { exec } from 'teen_process';
 import _ from 'lodash';
 import os from 'os';

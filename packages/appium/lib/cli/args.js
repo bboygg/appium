@@ -3,20 +3,15 @@
 // @ts-ignore
 import { DEFAULT_BASE_PATH } from '@appium/base-driver';
 import _ from 'lodash';
-import DriverConfig from '../driver-config';
-import { APPIUM_HOME, DRIVER_TYPE, INSTALL_TYPES, PLUGIN_TYPE } from '../extension-config';
-import PluginConfig from '../plugin-config';
+import { INSTALL_TYPES } from '../extension-config';
 import { toParserArgs } from '../schema/cli-args';
-
+import {DRIVER_TYPE, PLUGIN_TYPE} from '../constants';
 const DRIVER_EXAMPLE = 'xcuitest';
 const PLUGIN_EXAMPLE = 'find_by_image';
-const USE_ALL_PLUGINS = 'all';
+
 
 /** @type {Set<ExtensionType>} */
 const EXTENSION_TYPES = new Set([DRIVER_TYPE, PLUGIN_TYPE]);
-
-const driverConfig = DriverConfig.getInstance(APPIUM_HOME);
-const pluginConfig = PluginConfig.getInstance(APPIUM_HOME);
 
 // this set of args works for both drivers and plugins ('extensions')
 /** @type {ArgumentDefinitions} */
@@ -33,7 +28,7 @@ const globalExtensionArgs = new Map([
 /**
  * Builds a Record of extension types to a Record of subcommands to their argument definitions
  */
-const getExtensionArgs = _.once(function getExtensionArgs () {
+const getExtensionArgs = _.memoize(function getExtensionArgs () {
   const extensionArgs = {};
   for (const type of EXTENSION_TYPES) {
     extensionArgs[type] = {
@@ -224,16 +219,12 @@ const serverArgsDisallowedInConfig = new Map([
 
 export {
   getServerArgs,
-  getExtensionArgs,
-  USE_ALL_PLUGINS,
-  driverConfig,
-  pluginConfig,
-  APPIUM_HOME
+  getExtensionArgs
 };
 
 /**
  * Alias
- * @typedef {import('../ext-config-io').ExtensionType} ExtensionType
+ * @typedef {import('../manifest-io').ExtensionType} ExtensionType
  */
 
 /**

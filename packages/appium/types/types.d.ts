@@ -3,7 +3,7 @@ import {SERVER_SUBCOMMAND} from '../lib/cli/parser';
 import {
   DRIVER_TYPE as DRIVER_SUBCOMMAND,
   PLUGIN_TYPE as PLUGIN_SUBCOMMAND,
-} from '../lib/ext-config-io';
+} from '../lib/manifest-io';
 import appiumConfigSchema from '../lib/schema/appium-config-schema';
 import {AppiumConfiguration, ServerConfig} from './appium-config';
 
@@ -190,6 +190,11 @@ interface MoreArgs {
    * Subcommands of `plugin` subcommand
    */
   pluginCommand: CliExtensionSubcommands;
+  
+  /**
+   * Seems to only be used in tests or standalone driver calls
+   */
+  logHandler: (...args: any[]) => void;
 }
 
 /**
@@ -199,3 +204,4 @@ interface MoreArgs {
  * extensions.
  */
 export type ParsedArgs = ParsedArgsFromConfig & Partial<MoreArgs>;
+

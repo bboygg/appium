@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import ExtensionCommand from './extension-command';
-import { DRIVER_TYPE } from '../extension-config';
+import { DRIVER_TYPE } from '../constants';
 import { KNOWN_DRIVERS } from '../drivers';
 
 const REQ_DRIVER_FIELDS = ['driverName', 'automationName', 'platformNames', 'mainClass'];

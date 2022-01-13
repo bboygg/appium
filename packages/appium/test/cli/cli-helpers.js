@@ -116,7 +116,7 @@ export const runAppiumJson = _.curry(
 export const installLocalExtension = _.curry(
   /**
    * @param {string} appiumHome
-   * @param {import('../../lib/ext-config-io').ExtensionType} type
+   * @param {import('../../lib/manifest-io').ExtensionType} type
    * @param {string} pathToExtension
    * @returns {Promise<object>}
    */

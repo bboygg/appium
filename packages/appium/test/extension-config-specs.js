@@ -1,8 +1,9 @@
 // @ts-check
 
 import path from 'path';
-import rewiremock from 'rewiremock/node';
+import {rewiremock} from './helpers';
 import sinon from 'sinon';
+import { resetSchema } from '../lib/schema';
 
 const expect = chai.expect;
 
@@ -11,34 +12,45 @@ describe('ExtensionConfig', function () {
     it('should have some tests');
   });
 
+  /** @type {sinon.SinonStubbedInstance<import('../lib/manifest-io').ManifestIO>} */
+  let io;
+  let mocks;
+  /** @type {import('sinon').SinonSandbox} */
+  let sandbox;
+  beforeEach(function () {
+    sandbox = sinon.createSandbox();
+    io = /** @type {sinon.SinonStubbedInstance<import('../lib/manifest-io').ManifestIO>} */ ({
+      appiumHome: '/tmp/',
+      manifestPath: '/tmp/extension.yaml',
+      write: sandbox.stub().resolves(),
+    });
+    mocks = {
+      'resolve-from': sandbox.stub().callsFake((cwd, id) => path.join(cwd, id)),
+      '../lib/manifest-io': {
+        getManifestIOInstance: sandbox.stub().returns(io),
+      },
+    };
+    resetSchema();
+  });
+
+  afterEach(function () {
+    sandbox.restore();
+  });
   describe('DriverConfig', function () {
     /**
-     * @type {typeof import('../lib/driver-config').default}
+     * @type {typeof import('../lib/driver-config').DriverConfig}
      */
     let DriverConfig;
-    let mocks;
-    /** @type {import('sinon').SinonSandbox} */
-    let sandbox;
     beforeEach(function () {
-      mocks = {
-        'resolve-from': sinon.stub().callsFake((cwd, id) => path.join(cwd, id)),
-      };
-
       DriverConfig = rewiremock.proxy(
         () => require('../lib/driver-config'),
         mocks,
-      ).default;
-
-      sandbox = sinon.createSandbox();
-    });
-
-    afterEach(function () {
-      sandbox.restore();
+      ).DriverConfig;
     });
 
     describe('extensionDesc()', function () {
       it('should return the description of the extension', function () {
-        const config = DriverConfig.getInstance('/tmp/');
+        const config = DriverConfig.create(io);
         config
           .extensionDesc('foo', {version: '1.0', automationName: 'bar'})
           .should.equal(`foo@1.0 (automationName 'bar')`);
@@ -52,7 +64,7 @@ describe('ExtensionConfig', function () {
       let driverConfig;
 
       beforeEach(function () {
-        driverConfig = DriverConfig.getInstance('/tmp/');
+        driverConfig = DriverConfig.create(io);
       });
 
       describe('when provided no arguments', function () {
@@ -65,7 +77,8 @@ describe('ExtensionConfig', function () {
       describe('property `platformNames`', function () {
         describe('when provided an object with no `platformNames` property', function () {
           it('should return an array with an associated problem', function () {
-            driverConfig.getConfigProblems({}, 'foo').should.deep.include({
+            // @ts-expect-error
+            driverConfig.getConfigProblems({}).should.deep.include({
               err: 'Missing or incorrect supported platformNames list.',
               val: undefined,
             });
@@ -75,7 +88,8 @@ describe('ExtensionConfig', function () {
         describe('when provided an object with an empty `platformNames` property', function () {
           it('should return an array with an associated problem', function () {
             driverConfig
-              .getConfigProblems({platformNames: []}, 'foo')
+              // @ts-expect-error
+              .getConfigProblems({platformNames: []})
               .should.deep.include({
                 err: 'Empty platformNames list.',
                 val: [],
@@ -86,7 +100,8 @@ describe('ExtensionConfig', function () {
         describe('when provided an object with a non-array `platformNames` property', function () {
           it('should return an array with an associated problem', function () {
             driverConfig
-              .getConfigProblems({platformNames: 'foo'}, 'foo')
+              // @ts-expect-error
+              .getConfigProblems({platformNames: 'foo'})
               .should.deep.include({
                 err: 'Missing or incorrect supported platformNames list.',
                 val: 'foo',
@@ -97,7 +112,8 @@ describe('ExtensionConfig', function () {
         describe('when provided a non-empty array containing a non-string item', function () {
           it('should return an array with an associated problem', function () {
             driverConfig
-              .getConfigProblems({platformNames: ['a', 1]}, 'foo')
+              // @ts-expect-error
+              .getConfigProblems({platformNames: ['a', 1]})
               .should.deep.include({
                 err: 'Incorrectly formatted platformName.',
                 val: 1,
@@ -109,7 +125,8 @@ describe('ExtensionConfig', function () {
       describe('property `automationName`', function () {
         describe('when provided an object with a missing `automationName` property', function () {
           it('should return an array with an associated problem', function () {
-            driverConfig.getConfigProblems({}, 'foo').should.deep.include({
+            // @ts-expect-error
+            driverConfig.getConfigProblems({}).should.deep.include({
               err: 'Missing or incorrect automationName',
               val: undefined,
             });
@@ -117,9 +134,11 @@ describe('ExtensionConfig', function () {
         });
         describe('when provided a conflicting automationName', function () {
           it('should return an array with an associated problem', function () {
-            driverConfig.getConfigProblems({automationName: 'foo'}, 'foo');
+            // @ts-expect-error
+            driverConfig.getConfigProblems({automationName: 'foo'});
             driverConfig
-              .getConfigProblems({automationName: 'foo'}, 'foo')
+              // @ts-expect-error
+              .getConfigProblems({automationName: 'foo'})
               .should.deep.include({
                 err: 'Multiple drivers claim support for the same automationName',
                 val: 'foo',
@@ -136,12 +155,13 @@ describe('ExtensionConfig', function () {
       let driverConfig;
 
       beforeEach(function () {
-        driverConfig = DriverConfig.getInstance('/tmp/');
+        driverConfig = DriverConfig.create(io);
       });
       describe('when provided an object with a defined non-string `schema` property', function () {
         it('should return an array with an associated problem', function () {
           driverConfig
-            .getSchemaProblems({schema: []}, 'foo')
+            // @ts-expect-error
+            .getSchemaProblems({schema: []})
             .should.deep.include({
               err: 'Incorrectly formatted schema field; must be a path to a schema file or a schema object.',
               val: [],
@@ -153,7 +173,8 @@ describe('ExtensionConfig', function () {
         describe('when the property ends in an unsupported extension', function () {
           it('should return an array with an associated problem', function () {
             driverConfig
-              .getSchemaProblems({schema: 'selenium.java'}, 'foo')
+              // @ts-expect-error
+              .getSchemaProblems({schema: 'selenium.java'})
               .should.deep.include({
                 err: 'Schema file has unsupported extension. Allowed: .json, .js, .cjs',
                 val: 'selenium.java',
@@ -165,6 +186,7 @@ describe('ExtensionConfig', function () {
           describe('when the property as a path cannot be found', function () {
             it('should return an array with an associated problem', function () {
               const problems = driverConfig.getSchemaProblems(
+                // @ts-expect-error
                 {
                   installPath: '/usr/bin/derp',
                   pkgName: 'doop',
@@ -172,17 +194,16 @@ describe('ExtensionConfig', function () {
                 },
                 'foo',
               );
-              problems[0].err.should.match(/Unable to register schema at path herp\.json/i);
-              // problems.should.deep.include({
-              //   err: `Unable to register schema at path herp.json`,
-              //   val: 'herp.json',
-              // });
+              problems[0].err.should.match(
+                /Unable to register schema at path herp\.json/i,
+              );
             });
           });
 
           describe('when the property as a path is found', function () {
             it('should return an empty array', function () {
               const problems = driverConfig.getSchemaProblems(
+                // @ts-expect-error
                 {
                   pkgName: 'fixtures', // just corresponds to a directory name relative to `installPath` `(__dirname)`
                   installPath: __dirname,
@@ -197,22 +218,22 @@ describe('ExtensionConfig', function () {
       });
     });
 
-    describe('read()', function () {
-      /**
-       * @type {ReturnType<DriverConfig['getInstance']>}
-       */
-      let driverConfig;
+    // describe('read()', function () {
+    //   /**
+    //    * @type {ReturnType<DriverConfig['getInstance']>}
+    //    */
+    //   let driverConfig;
 
-      beforeEach(function () {
-        driverConfig = DriverConfig.getInstance('/tmp/');
-        sandbox.spy(driverConfig, 'validate');
-      });
+    //   beforeEach(function () {
+    //     driverConfig = DriverConfig.create(io);
+    //     sandbox.spy(driverConfig, 'validate');
+    //   });
 
-      it('should validate the extension', async function () {
-        await driverConfig.read();
-        driverConfig.validate.should.have.been.calledOnce;
-      });
-    });
+    //   it('should validate the extension', async function () {
+    //     await driverConfig.read();
+    //     driverConfig.validate.should.have.been.calledOnce;
+    //   });
+    // });
 
     describe('readExtensionSchema()', function () {
       /**
@@ -220,7 +241,7 @@ describe('ExtensionConfig', function () {
        */
       let driverConfig;
 
-      /** @type {import('../lib/extension-config').ExtData} */
+      /** @type {import('../lib/extension-config').ExtDataWithSchema<import('../lib/extension-config').DriverType>} */
       let extData;
 
       const extName = 'stuff';
@@ -230,15 +251,20 @@ describe('ExtensionConfig', function () {
           installPath: 'fixtures',
           pkgName: 'some-pkg',
           schema: 'driver.schema.js',
+          automationName: 'foo',
+          mainClass: 'Gargle',
+          platformNames: ['barnyard'],
+          version: '1.0.0',
         };
         mocks['resolve-from'].returns(
           require.resolve('./fixtures/driver.schema.js'),
         );
-        driverConfig = DriverConfig.getInstance('/tmp/');
+        driverConfig = DriverConfig.create(io);
       });
 
       describe('when the extension data is missing `schema`', function () {
         it('should throw', function () {
+          // @ts-expect-error
           delete extData.schema;
           expect(() =>
             driverConfig.readExtensionSchema(extName, extData),
@@ -249,13 +275,15 @@ describe('ExtensionConfig', function () {
       describe('when the extension schema has already been registered (with the same schema)', function () {
         it('should not throw', function () {
           driverConfig.readExtensionSchema(extName, extData);
-          expect(() => driverConfig.readExtensionSchema(extName, extData)).not.to.throw();
+          expect(() =>
+            driverConfig.readExtensionSchema(extName, extData),
+          ).not.to.throw();
         });
       });
 
       describe('when the extension schema has not yet been registered', function () {
         it('should resolve and load the extension schema file', function () {
-          driverConfig.readExtensionSchema (extName, extData);
+          driverConfig.readExtensionSchema(extName, extData);
 
           // we don't have access to the schema registration cache directly, so this is as close as we can get.
           expect(mocks['resolve-from']).to.have.been.calledOnce;
@@ -266,21 +294,15 @@ describe('ExtensionConfig', function () {
 
   describe('PluginConfig', function () {
     /**
-     * @type {typeof import('../lib/plugin-config').default}
+     * @type {typeof import('../lib/plugin-config').PluginConfig}
      */
     let PluginConfig;
-    let mocks;
-    /** @type {import('sinon').SinonSandbox} */
-    let sandbox;
-    beforeEach(function () {
-      mocks = {
-        'resolve-from': sinon.stub().callsFake((cwd, id) => path.join(cwd, id)),
-      };
 
+    beforeEach(function () {
       PluginConfig = rewiremock.proxy(
         () => require('../lib/plugin-config'),
         mocks,
-      ).default;
+      ).PluginConfig;
 
       sandbox = sinon.createSandbox();
     });
@@ -291,9 +313,14 @@ describe('ExtensionConfig', function () {
 
     describe('extensionDesc()', function () {
       it('should return the description of the extension', function () {
-        const config = PluginConfig.getInstance('/tmp/');
+        const config = PluginConfig.create(io);
         config
-          .extensionDesc('foo', {version: '1.0'})
+          .extensionDesc('foo', {
+            version: '1.0',
+            mainClass: 'Barrggh',
+            installPath: '/somewhere/',
+            pkgName: 'herrbbbff',
+          })
           .should.equal(`foo@1.0`);
       });
     });
@@ -305,7 +332,7 @@ describe('ExtensionConfig', function () {
       let pluginConfig;
 
       beforeEach(function () {
-        pluginConfig = PluginConfig.getInstance('/tmp/');
+        pluginConfig = PluginConfig.create(io);
       });
 
       describe('when provided no arguments', function () {
@@ -323,13 +350,22 @@ describe('ExtensionConfig', function () {
       let pluginConfig;
 
       beforeEach(function () {
-        pluginConfig = PluginConfig.getInstance('/tmp/');
+        pluginConfig = PluginConfig.create(io);
       });
 
       describe('when provided an object with a defined `schema` property of unsupported type', function () {
         it('should return an array with an associated problem', function () {
           pluginConfig
-            .getSchemaProblems({schema: []}, 'foo')
+            .getSchemaProblems(
+              {
+                schema: [],
+                mainClass: 'Asdsh',
+                installPath: '/dev/null',
+                pkgName: 'yodel',
+                version: '-1',
+              },
+              'foo',
+            )
             .should.deep.include({
               err: 'Incorrectly formatted schema field; must be a path to a schema file or a schema object.',
               val: [],
@@ -341,7 +377,16 @@ describe('ExtensionConfig', function () {
         describe('when the property ends in an unsupported extension', function () {
           it('should return an array with an associated problem', function () {
             pluginConfig
-              .getSchemaProblems({schema: 'selenium.java'}, 'foo')
+              .getSchemaProblems(
+                {
+                  schema: 'selenium.java',
+                  mainClass: 'Asdsh',
+                  installPath: '/dev/null',
+                  pkgName: 'yodel',
+                  version: '-1',
+                },
+                'foo',
+              )
               .should.deep.include({
                 err: 'Schema file has unsupported extension. Allowed: .json, .js, .cjs',
                 val: 'selenium.java',
@@ -357,24 +402,29 @@ describe('ExtensionConfig', function () {
                   installPath: '/usr/bin/derp',
                   pkgName: 'doop',
                   schema: 'herp.json',
+                  mainClass: 'Yankovic',
+                  version: '1.0.0',
                 },
                 'foo',
               );
-              problems[0].err.should.match(/Unable to register schema at path herp\.json/i);
+              problems[0].err.should.match(
+                /Unable to register schema at path herp\.json/i,
+              );
             });
           });
 
           describe('when the property as a path is found', function () {
             it('should return an empty array', function () {
-              const problems = pluginConfig.getSchemaProblems(
+              pluginConfig.getSchemaProblems(
                 {
                   pkgName: 'fixtures', // just corresponds to a directory name relative to `installPath` `(__dirname)`
                   installPath: __dirname,
                   schema: 'plugin.schema.js',
+                  mainClass: 'Yankovic',
+                  version: '1.0.0',
                 },
                 'foo',
-              );
-              problems.should.be.empty;
+              ).should.be.empty;
             });
           });
         });
@@ -383,6 +433,7 @@ describe('ExtensionConfig', function () {
       describe('when provided an object `schema` property', function () {
         it('should return an empty array', function () {
           const problems = pluginConfig.getSchemaProblems(
+            // @ts-expect-error
             {
               pkgName: 'fixtures', // just corresponds to a directory name relative to `installPath` `(__dirname)`
               installPath: __dirname,
@@ -395,30 +446,30 @@ describe('ExtensionConfig', function () {
       });
     });
 
-    describe('read()', function () {
-      /**
-       * @type {ReturnType<PluginConfig['getInstance']>}
-       */
-      let pluginConfig;
+    // describe('read()', function () {
+    //   /**
+    //    * @type {ReturnType<PluginConfig['getInstance']>}
+    //    */
+    //   let pluginConfig;
 
-      beforeEach(function () {
-        pluginConfig = PluginConfig.getInstance('/tmp/');
-        sandbox.spy(pluginConfig, 'validate');
-      });
+    //   beforeEach(function () {
+    //     pluginConfig = PluginConfig.create(io);
+    //     sandbox.spy(pluginConfig, 'validate');
+    //   });
 
-      it('should validate the extension', async function () {
-        await pluginConfig.read();
-        pluginConfig.validate.should.have.been.calledOnce;
-      });
-    });
+    //   it('should validate the extension', async function () {
+    //     await pluginConfig.read();
+    //     pluginConfig.validate.should.have.been.calledOnce;
+    //   });
+    // });
 
     describe('readExtensionSchema()', function () {
       /**
-       * @type {ReturnType<PluginConfig['getInstance']>}
+       * @type {ReturnType<PluginConfig['create']>}
        */
       let pluginConfig;
 
-      /** @type {import('../lib/extension-config').ExtData} */
+      /** @type {import('../lib/extension-config').ExtDataWithSchema<import('../lib/plugin-config').PluginType>} */
       let extData;
 
       const extName = 'stuff';
@@ -428,16 +479,18 @@ describe('ExtensionConfig', function () {
           installPath: 'fixtures',
           pkgName: 'some-pkg',
           schema: 'plugin.schema.js',
+          mainClass: 'SomeClass',
+          version: '0.0.0',
         };
         mocks['resolve-from'].returns(
           require.resolve('./fixtures/plugin.schema.js'),
         );
-        pluginConfig = PluginConfig.getInstance('/tmp/');
-
+        pluginConfig = PluginConfig.create(io);
       });
 
       describe('when the extension data is missing `schema`', function () {
         it('should throw', function () {
+          // @ts-expect-error
           delete extData.schema;
           expect(() =>
             pluginConfig.readExtensionSchema(extName, extData),
@@ -449,15 +502,21 @@ describe('ExtensionConfig', function () {
         describe('when the schema is identical (presumably the same extension)', function () {
           it('should not throw', function () {
             pluginConfig.readExtensionSchema(extName, extData);
-            expect(() => pluginConfig.readExtensionSchema(extName, extData)).not.to.throw();
+            expect(() =>
+              pluginConfig.readExtensionSchema(extName, extData),
+            ).not.to.throw();
           });
         });
 
         describe('when the schema differs (presumably a different extension)', function () {
           it('should throw', function () {
             pluginConfig.readExtensionSchema(extName, extData);
-            mocks['resolve-from'].returns(require.resolve('./fixtures/driver.schema.js'));
-            expect(() => pluginConfig.readExtensionSchema(extName, extData)).to.throw(/conflicts with an existing schema/i);
+            mocks['resolve-from'].returns(
+              require.resolve('./fixtures/driver.schema.js'),
+            );
+            expect(() =>
+              pluginConfig.readExtensionSchema(extName, extData),
+            ).to.throw(/conflicts with an existing schema/i);
           });
         });
       });

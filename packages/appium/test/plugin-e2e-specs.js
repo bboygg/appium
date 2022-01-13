@@ -1,3 +1,5 @@
+// @ts-check
+
 // transpile:mocha
 import _ from 'lodash';
 import path from 'path';
@@ -5,17 +7,21 @@ import B from 'bluebird';
 import { remote as wdio } from 'webdriverio';
 import axios from 'axios';
 import { main as appiumServer } from '../lib/main';
-import { DEFAULT_APPIUM_HOME, INSTALL_TYPE_LOCAL, DRIVER_TYPE, PLUGIN_TYPE } from '../lib/extension-config';
+import { INSTALL_TYPE_LOCAL } from '../lib/extension-config';
 import { W3C_PREFIXED_CAPS, TEST_HOST, getTestPort, PROJECT_ROOT } from './helpers';
 import { runExtensionCommand } from '../lib/cli/extension';
+import { env } from '@appium/support';
+import { loadExtensions } from '../lib/manifest-io';
 
-
+const {DEFAULT_APPIUM_HOME} = env;
 const FAKE_ARGS = {sillyWebServerPort: 1234, host: 'hey'};
 const FAKE_PLUGIN_ARGS = {fake: FAKE_ARGS};
 
+const should = chai.should();
+
+/** @type {WebdriverIO.RemoteOptions} */
 const wdOpts = {
   hostname: TEST_HOST,
-  port: null,
   connectionRetryCount: 0,
   capabilities: W3C_PREFIXED_CAPS,
 };
@@ -33,43 +39,43 @@ describe('FakePlugin', function () {
     wdOpts.port = testPort = await getTestPort();
     testServer = `http://${TEST_HOST}:${testPort}`;
     baseUrl = `${testServer}/session`;
+    const {driverConfig, pluginConfig} = await loadExtensions(appiumHome);
     // first ensure we have fakedriver installed
     const driverList = await runExtensionCommand({
-      appiumHome,
       driverCommand: 'list',
       showInstalled: true,
-    }, DRIVER_TYPE);
+    }, driverConfig
+    );
     if (!_.has(driverList, 'fake')) {
       await runExtensionCommand({
-        appiumHome,
         driverCommand: 'install',
         driver: fakeDriverDir,
         installType: INSTALL_TYPE_LOCAL,
-      }, DRIVER_TYPE);
+      }, driverConfig
+      );
     }
 
     const pluginList = await runExtensionCommand({
-      appiumHome,
       pluginCommand: 'list',
       showInstalled: true,
-    }, PLUGIN_TYPE);
+    }, pluginConfig);
     if (!_.has(pluginList, 'fake')) {
       await runExtensionCommand({
-        appiumHome,
         pluginCommand: 'install',
         plugin: fakePluginDir,
         installType: INSTALL_TYPE_LOCAL,
-      }, PLUGIN_TYPE);
+      }, pluginConfig);
     }
-    baseArgs = {port: testPort, host: TEST_HOST, appiumHome, usePlugins: ['fake'], useDrivers: ['fake']};
+    baseArgs = {port: testPort, host: TEST_HOST, usePlugins: ['fake'], useDrivers: ['fake']};
   });
 
   describe('without plugin registered', function () {
     let server = null;
     before(async function () {
       // then start server if we need to
-      const args = {port: testPort, host: TEST_HOST, appiumHome, usePlugins: ['other1', 'other2']};
-      server = await appiumServer(args);
+
+      const args = {port: testPort, address: TEST_HOST, usePlugins: ['other1', 'other2']};
+      server = await appiumServer(/** @type {import('../types/types').ParsedArgs} */(args));
     });
     after(async function () {
       if (server) {
@@ -106,8 +112,8 @@ describe('FakePlugin', function () {
       before(async function () {
         // then start server if we need to
         const usePlugins = registrationType === 'explicit' ? ['fake', 'p2', 'p3'] : ['all'];
-        const args = {port: testPort, host: TEST_HOST, appiumHome, usePlugins, useDrivers: ['fake']};
-        server = await appiumServer(args);
+        const args = {port: testPort, address: TEST_HOST, usePlugins, useDrivers: ['fake']};
+        server = await appiumServer(/** @type {import('../types/types').ParsedArgs} */(args));
       });
       after(async function () {
         if (server) {
@@ -165,8 +171,9 @@ describe('FakePlugin', function () {
       });
 
       it('should handle unexpected driver shutdown', async function () {
+        /** @type {WebdriverIO.RemoteOptions} */
         const newOpts = {...wdOpts};
-        newOpts.capabilities['appium:newCommandTimeout'] = 1;
+        newOpts.capabilities = {...newOpts.capabilities ?? {}, 'appium:newCommandTimeout': 1};
         const driver = await wdio(wdOpts);
         let shutdownErr;
         try {

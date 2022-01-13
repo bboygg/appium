@@ -42,6 +42,6 @@ function resolveFixture (filename, ...pathParts) {
 
 overrideEntryPoint(module);
 addPlugin(plugins.nodejs);
-addPlugin(plugins.childOnly);
+// addPlugin(plugins.childOnly);
 
 export { TEST_FAKE_APP, TEST_HOST, BASE_CAPS, W3C_PREFIXED_CAPS, W3C_CAPS, PROJECT_ROOT, getTestPort, rewiremock, resolveFixture };

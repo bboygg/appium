@@ -1,10 +1,14 @@
+// @ts-check
+
 import _ from 'lodash';
-import ExtensionConfig from './extension-config';
-import { PLUGIN_TYPE } from './ext-config-io';
+import {ExtensionConfig} from './extension-config';
 import log from './logger';
+import {PLUGIN_TYPE} from './constants';
 
-export default class PluginConfig extends ExtensionConfig {
-
+/**
+ * @extends {ExtensionConfig<PluginType>}
+ */
+export class PluginConfig extends ExtensionConfig {
   /**
    * A mapping of `APPIUM_HOME` values to {@link PluginConfig} instances.
    * Each `APPIUM_HOME` should only have one associated `PluginConfig` instance.
@@ -18,29 +22,53 @@ export default class PluginConfig extends ExtensionConfig {
    *
    * Just calls the superclass' constructor with the correct extension type
    * @private
-   * @param {string} appiumHome - `APPIUM_HOME` path
-   * @param {(...args: any[]) => void)} [logFn] - Optional logging function
+   * @param {import('./manifest-io').ManifestIO} io - IO object
+   * @param {PluginConfigOptions} [opts]
    */
-  constructor (appiumHome, logFn) {
-    super(appiumHome, PLUGIN_TYPE, logFn);
+  constructor (io, {extData, logFn} = {}) {
+    super(PLUGIN_TYPE, io, logFn);
+
+    if (extData) {
+      this.validate(extData);
+    }
+  }
+
+  /**
+   *
+   * @param {import('./manifest-io').ManifestIO} io
+   * @param {PluginConfigOptions} [opts]
+   * @returns {PluginConfig}
+   */
+  static create (io, {extData, logFn} = {}) {
+    const instance = new PluginConfig(io, {logFn, extData});
+    PluginConfig._instances[io.appiumHome] = instance;
+    return instance;
   }
 
   /**
    * Creates or gets an instance of {@link PluginConfig} based value of `appiumHome`
-   * @param {string} appiumHome - `APPIUM_HOME` path
-   * @param {(...args: any[]) => void} [logFn] - Optional logging function
+   * @param {import('./manifest-io').ManifestIO} io - IO object
    * @returns {PluginConfig}
    */
-  static getInstance (appiumHome, logFn) {
-    const instance = PluginConfig._instances[appiumHome] ?? new PluginConfig(appiumHome, logFn);
-    PluginConfig._instances[appiumHome] = instance;
-    return instance;
+  static getInstance (io) {
+    return PluginConfig._instances[io.appiumHome];
   }
 
+
+  /**
+   * @param {string} pluginName
+   * @param {PluginData} pluginData
+   * @returns {string}
+   */
   extensionDesc (pluginName, {version}) {
     return `${pluginName}@${version}`;
   }
 
+  /**
+   *
+   * @param {(keyof import('./extension-config').ExtRecord<PluginType>)[]} activeNames
+   * @returns {void}
+   */
   print (activeNames) {
     const pluginNames = Object.keys(this.installedExtensions);
 
@@ -61,3 +89,17 @@ export default class PluginConfig extends ExtensionConfig {
     }
   }
 }
+
+/**
+ * @typedef {Object} PluginConfigOptions
+ * @property {import('./extension-config').ExtensionLogFn} [logFn] - Optional logging function
+ * @property {import('./extension-config').ExtRecord<PluginType>} [extData] - Extension data
+ */
+
+/**
+ * @typedef {import('./extension-config').PluginType} PluginType
+ */
+
+/**
+ * @typedef {import('./extension-config').ExtData<PluginType>} PluginData
+ */

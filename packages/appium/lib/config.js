@@ -2,7 +2,6 @@ import _ from 'lodash';
 import { mkdirp, system, fs } from '@appium/support';
 import axios from 'axios';
 import { exec } from 'teen_process';
-import { rootDir } from './utils';
 import logger from './logger';
 import semver from 'semver';
 import findUp from 'find-up';
@@ -218,8 +217,10 @@ async function validateTmpDir (tmpDir) {
   }
 }
 
+const rootDir = fs.findRoot(__dirname);
+
 export {
   getBuildInfo, checkNodeOk, showConfig,
   warnNodeDeprecations, validateTmpDir, getNonDefaultServerArgs,
-  getGitRev, APPIUM_VER, updateBuildInfo
+  getGitRev, APPIUM_VER, updateBuildInfo, rootDir
 };

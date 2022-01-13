@@ -122,7 +122,7 @@ class AppiumDriver extends BaseDriver {
    * If the extension has provided a schema, validation has already happened.
    *
    * Any arg which is equal to its default value will not be assigned to the extension.
-   * @param {import('./ext-config-io').ExtensionType} extType 'driver' or 'plugin'
+   * @param {import('./manifest-io').ExtensionType} extType 'driver' or 'plugin'
    * @param {string} extName the name of the extension
    * @param {Object} extInstance the driver or plugin instance
    */

@@ -10,8 +10,9 @@ import path from 'path';
 import { logger } from './log.mjs';
 import { AppiumExtManifest, MANIFEST_BASENAME } from './manifest.mjs';
 import { applyPatch, createPatch } from './patch.mjs';
+import { resolveAppiumHome } from './system.mjs';
 import { hasLocalAppium, isExtension, readPackageInDir } from './utils.mjs';
-
+export { DEFAULT_APPIUM_HOME } from './system.mjs';
 export * as utils from './utils.mjs';
 export { MANIFEST_BASENAME };
 
@@ -43,6 +44,16 @@ export const LOCAL_RELATIVE_MANIFEST_PATH = path.join(
   'appium',
   MANIFEST_BASENAME,
 );
+
+/**
+ * Just resolves with whatever `APPIUM_HOME` is.
+ * @param {string} [cwd] - Current working directory
+ * @returns {Promise<string>}
+ */
+export async function findAppiumHome (cwd = process.cwd()) {
+  const {home} = await resolveAppiumHome(cwd);
+  return home;
+}
 
 /**
  * Default options for {@link findManifest}.
@@ -99,7 +110,7 @@ export async function findManifest (cwd) {
  * @param {FindExtensionsOptions} [opts] - Options
  * @returns {Promise<string>}
  */
-async function buildManifestPath (cwd, {forceLocal = false, manifestPath} = {}) {
+export async function getManifestPath (cwd, {forceLocal = false, manifestPath} = {}) {
   return manifestPath ?? (
     forceLocal || (await hasLocalAppium(cwd))
       ? path.join(cwd, LOCAL_RELATIVE_MANIFEST_PATH)
@@ -123,7 +134,7 @@ export async function findInstalledExtensions (
   cwd,
   {forceLocal = false, depthLimit = DEFAULT_SEARCH_DEPTH, manifestPath} = {},
 ) {
-  manifestPath = await buildManifestPath(cwd, {forceLocal, manifestPath});
+  manifestPath = await getManifestPath(cwd, {forceLocal, manifestPath});
 
   const manifest = AppiumExtManifest.from(cwd, manifestPath);
 
@@ -152,7 +163,7 @@ export async function findInstalledExtensions (
 export async function findRequiredExtensions (
   cwd, {forceLocal = false, manifestPath} = {}
 ) {
-  manifestPath = await buildManifestPath(cwd, {forceLocal, manifestPath});
+  manifestPath = await getManifestPath(cwd, {forceLocal, manifestPath});
 
   return await AppiumExtManifest.fromManifestFile(cwd, manifestPath);
 }

@@ -1,6 +1,6 @@
 import {
   parseCapsForInnerDriver, insertAppiumPrefixes, pullSettings,
-  removeAppiumPrefixes, ReadonlyMap, inspect
+  removeAppiumPrefixes, inspect
 } from '../lib/utils';
 import { BASE_CAPS, W3C_CAPS } from './helpers';
 import _ from 'lodash';
@@ -209,34 +209,6 @@ describe('utils', function () {
       const settings = pullSettings(caps);
       settings.should.eql({});
       caps.should.eql({});
-    });
-  });
-
-  describe('ReadonlyMap', function () {
-    it('should allow writing', function () {
-      const map = new ReadonlyMap();
-      (() => map.set('foo', 'bar')).should.not.throw();
-
-    });
-
-    it('should allow reading', function () {
-      const map = new ReadonlyMap([['foo', 'bar']]);
-      (() => map.get('foo')).should.not.throw();
-    });
-
-    it('should not allow deletion', function () {
-      const map = new ReadonlyMap([['foo', 'bar']]);
-      map.delete('foo').should.be.false;
-    });
-
-    it('should not allow clearing', function () {
-      const map = new ReadonlyMap([['foo', 'bar']]);
-      (() => map.clear()).should.throw();
-    });
-
-    it('should not allow updating', function () {
-      const map = new ReadonlyMap([['foo', 'bar']]);
-      (() => map.set('foo', 'baz')).should.throw();
     });
   });
 

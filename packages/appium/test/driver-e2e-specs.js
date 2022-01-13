@@ -1,3 +1,4 @@
+// @ts-check
 // transpile:mocha
 
 import _ from 'lodash';
@@ -6,14 +7,17 @@ import B from 'bluebird';
 import axios from 'axios';
 import { remote as wdio } from 'webdriverio';
 import { main as appiumServer } from '../lib/main';
-import { DEFAULT_APPIUM_HOME, INSTALL_TYPE_LOCAL, DRIVER_TYPE } from '../lib/extension-config';
+import { INSTALL_TYPE_LOCAL } from '../lib/extension-config';
 import { W3C_PREFIXED_CAPS, TEST_FAKE_APP, TEST_HOST, getTestPort, PROJECT_ROOT } from './helpers';
 import { BaseDriver } from '@appium/base-driver';
-import DriverConfig from '../lib/driver-config';
+import { loadExtensions } from '../lib/manifest-io';
 import { runExtensionCommand } from '../lib/cli/extension';
 import { removeAppiumPrefixes } from '../lib/utils';
 import sinon from 'sinon';
+import { env } from '@appium/support';
 
+const {DEFAULT_APPIUM_HOME} = env;
+const should = chai.should();
 
 let TEST_SERVER;
 let TEST_PORT;
@@ -23,9 +27,10 @@ const FAKE_ARGS = {sillyWebServerPort, sillyWebServerHost};
 const FAKE_DRIVER_ARGS = {driver: {fake: FAKE_ARGS}};
 const shouldStartServer = process.env.USE_RUNNING_SERVER !== '0';
 const caps = W3C_PREFIXED_CAPS;
+
+/** @type {WebdriverIO.RemoteOptions} */
 const wdOpts = {
   hostname: TEST_HOST,
-  port: null,
   connectionRetryCount: 0,
 };
 
@@ -42,22 +47,20 @@ describe('FakeDriver - via HTTP', function () {
     TEST_SERVER = `http://${TEST_HOST}:${TEST_PORT}`;
     baseUrl = `${TEST_SERVER}/session`;
     // first ensure we have fakedriver installed
+    const {driverConfig} = await loadExtensions(appiumHome);
     const driverList = await runExtensionCommand({
-      appiumHome,
       driverCommand: 'list',
       showInstalled: true,
-    }, DRIVER_TYPE);
+    }, driverConfig);
     if (!_.has(driverList, 'fake')) {
       await runExtensionCommand({
-        appiumHome,
         driverCommand: 'install',
         driver: FAKE_DRIVER_DIR,
         installType: INSTALL_TYPE_LOCAL,
-      }, DRIVER_TYPE);
+      }, driverConfig);
     }
 
-    const config = DriverConfig.getInstance(appiumHome);
-    FakeDriver = config.require('fake');
+    FakeDriver = driverConfig.require('fake');
     // then start server if we need to
     await serverStart();
   });
@@ -67,8 +70,9 @@ describe('FakeDriver - via HTTP', function () {
   });
 
   async function serverStart (args = {}) {
-    args = {port: TEST_PORT, host: TEST_HOST, appiumHome, ...args};
+    args = {port: TEST_PORT, address: TEST_HOST, appiumHome, ...args};
     if (shouldStartServer) {
+      // @ts-expect-error
       server = await appiumServer(args);
     }
   }
@@ -343,13 +347,12 @@ describe.skip('Logsink', function () {
   };
   let args = {
     port: TEST_PORT,
-    host: TEST_HOST,
-    appiumHome: DEFAULT_APPIUM_HOME,
+    address: TEST_HOST,
     logHandler,
   };
 
   before(async function () {
-    server = await appiumServer(args);
+    server = await appiumServer(/** @type {import('../types/types').ParsedArgs} */(args));
   });
 
   after(async function () {

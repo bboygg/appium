@@ -194,6 +194,10 @@ describe('parser', function () {
   });
 
   describe('Driver Parser', function () {
+    let p;
+    beforeEach(async function () {
+      p = await getParser(true);
+    });
     it('should not allow random sub-subcommands', function () {
       (() => p.parseArgs(['driver', 'foo'])).should.throw();
     });

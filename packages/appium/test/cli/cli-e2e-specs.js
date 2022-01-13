@@ -214,5 +214,5 @@ describe('CLI', function () {
 
 
 /**
- * @typedef {import('../../lib/ext-config-io').ExtensionType} ExtensionType
+ * @typedef {import('../../lib/manifest-io').ExtensionType} ExtensionType
  */

@@ -1,10 +1,12 @@
 // @ts-check
 
 import _ from 'lodash';
-import ExtensionConfig from './extension-config';
-import { DRIVER_TYPE } from './ext-config-io';
-
-export default class DriverConfig extends ExtensionConfig {
+import {ExtensionConfig} from './extension-config';
+import {DRIVER_TYPE} from './constants';
+/**
+ * @extends {ExtensionConfig<DriverType>}
+ */
+export class DriverConfig extends ExtensionConfig {
   /**
    * A mapping of `APPIUM_HOME` values to {@link DriverConfig} instances.
    * Each `APPIUM_HOME` should only have one associated `DriverConfig` instance.
@@ -16,40 +18,56 @@ export default class DriverConfig extends ExtensionConfig {
   /**
    * Call {@link DriverConfig.getInstance} instead.
    * @private
-   * @param {string} appiumHome
-   * @param {(...args: any[]) => void} [logFn]
+   * @param {import('./manifest-io').ManifestIO} io - IO object
+   * @param {DriverConfigOptions} [opts]
    */
-  constructor (appiumHome, logFn) {
-    super(appiumHome, DRIVER_TYPE, logFn);
+  constructor (io, {logFn, extData} = {}) {
+    super(DRIVER_TYPE, io, logFn);
     /** @type {Set<string>} */
     this.knownAutomationNames = new Set();
-  }
 
-  async read () {
-    this.knownAutomationNames.clear();
-    return await super.read();
+    if (extData) {
+      this.validate(extData);
+    }
   }
 
   /**
-   * Creates or gets an instance of {@link DriverConfig} based value of `appiumHome`
-   * @param {string} appiumHome - `APPIUM_HOME` path
-   * @param {(...args: any[]) => void} [logFn] - Optional logging function
+   * Checks extensions for problems
+   * @param {ExtRecord<DriverType>} exts
+   */
+  validate (exts) {
+    this.knownAutomationNames.clear();
+    return super.validate(exts);
+  }
+
+  /**
+   * Creates a new DriverConfig
+   *
+   * Warning: overwrites any existing `DriverConfig` for the given `appiumHome` prop of the `io` parameter.
+   * @param {import('./manifest-io').ManifestIO} io
+   * @param {DriverConfigOptions} [opts]
    * @returns {DriverConfig}
    */
-  static getInstance (appiumHome, logFn) {
-    const instance = DriverConfig._instances[appiumHome] ?? new DriverConfig(appiumHome, logFn);
-    DriverConfig._instances[appiumHome] = instance;
+  static create (io, {extData, logFn} = {}) {
+    const instance = new DriverConfig(io, {logFn, extData});
+    DriverConfig._instances[io.appiumHome] = instance;
     return instance;
   }
 
   /**
-   *
-   * @param {object} extData
-   * @param {string} extName
+   * Gets an existing instance of {@link DriverConfig} based value of `io.appiumHome`
+   * @param {import('./manifest-io').ManifestIO} io - IO object
+   * @returns {DriverConfig}
+   */
+  static getInstance (io) {
+    return DriverConfig._instances[io.appiumHome];
+  }
+
+  /**
+   * @param {ManifestDriverData} extData
    * @returns {import('./extension-config').Problem[]}
    */
-  // eslint-disable-next-line no-unused-vars
-  getConfigProblems (extData, extName) {
+  getConfigProblems (extData) {
     const problems = [];
     const {platformNames, automationName} = extData;
 
@@ -91,11 +109,36 @@ export default class DriverConfig extends ExtensionConfig {
   }
 
   /**
-   * @param {string} driverName
-   * @param {object} extData
+   * @template { {version: ManifestDriverData['version'], automationName: ManifestDriverData['automationName']} } EData
+   * @param {ExtName<DriverType>} driverName
+   * @param {EData} extData
+   * @returns {string}
    */
   extensionDesc (driverName, {version, automationName}) {
     return `${driverName}@${version} (automationName '${automationName}')`;
   }
 }
+
+/**
+ * @typedef {Object} DriverConfigOptions
+ * @property {import('./extension-config').ExtensionLogFn} [logFn] - Optional logging function
+ * @property {Manifest['drivers']} [extData] - Extension data
+ */
+
+/**
+ * @typedef {import('./extension-config').ExternalDriverData} ExternalDriverData
+ * @typedef {import('./extension-config').ManifestDriverData} ManifestDriverData
+ * @typedef {import('./extension-config').Manifest} Manifest
+ * @typedef {import('./extension-config').DriverType} DriverType
+ */
+
+/**
+ * @template T
+ * @typedef {import('./extension-config').ExtRecord<T>} ExtRecord
+ */
+
+/**
+ * @template T
+ * @typedef {import('./extension-config').ExtName<T>} ExtName
+ */
 

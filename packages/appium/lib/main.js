@@ -5,21 +5,23 @@
 
 // @ts-ignore
 import { routeConfiguringFunction as makeRouter, server as baseServer } from '@appium/base-driver';
-import { logger as logFactory, util } from '@appium/support';
+import { logger as logFactory, util, env } from '@appium/support';
 import { asyncify } from 'asyncbox';
 import _ from 'lodash';
 import { AppiumDriver } from './appium';
-import { driverConfig, pluginConfig, USE_ALL_PLUGINS } from './cli/args';
 import { runExtensionCommand } from './cli/extension';
-import { default as getParser, SERVER_SUBCOMMAND } from './cli/parser';
+import { getParser } from './cli/parser';
 import { APPIUM_VER, checkNodeOk, getGitRev, getNonDefaultServerArgs, showConfig, validateTmpDir, warnNodeDeprecations } from './config';
 import { readConfigFile } from './config-file';
-import { DRIVER_TYPE, PLUGIN_TYPE } from './extension-config';
+import { loadExtensions } from './manifest-io';
+import { DRIVER_TYPE, PLUGIN_TYPE, SERVER_SUBCOMMAND, USE_ALL_PLUGINS } from './constants';
 import registerNode from './grid-register';
 import logger from './logger'; // logger needs to remain first of imports
 import { init as logsinkInit } from './logsink';
 import { getDefaultsForSchema, validate } from './schema/schema';
 import { inspect } from './utils';
+
+const {resolveAppiumHome} = env;
 
 /**
  *
@@ -111,8 +113,8 @@ function logServerPort (address, port) {
  * to wrap command execution
  *
  * @param {Object} args - argparser parsed dict
- * @param {import('./plugin-config').default} pluginConfig - a plugin extension config
- * @returns {({pluginName: string} & ((...args: any[]) => unknown))[]}
+ * @param {import('./plugin-config').PluginConfig} pluginConfig - a plugin extension config
+ * @returns {import('./extension-config').PluginClass[]}
  */
 function getActivePlugins (args, pluginConfig) {
   return _.compact(Object.keys(pluginConfig.installedExtensions).filter((pluginName) =>
@@ -121,7 +123,7 @@ function getActivePlugins (args, pluginConfig) {
   ).map((pluginName) => {
     try {
       logger.info(`Attempting to load plugin ${pluginName}...`);
-      const PluginClass = /** @type {{pluginName: string} & ((...args: any[]) => unknown)} */(pluginConfig.require(pluginName));
+      const PluginClass = pluginConfig.require(pluginName);
 
       PluginClass.pluginName = pluginName; // store the plugin name on the class so it can be used later
       return PluginClass;
@@ -139,7 +141,7 @@ function getActivePlugins (args, pluginConfig) {
  * If the --drivers flag was given, this method only loads the given drivers.
  *
  * @param {Object} args - argparser parsed dict
- * @param {import('./driver-config').default} driverConfig - a driver extension config
+ * @param {import('./driver-config').DriverConfig} driverConfig - a driver extension config
  */
 function getActiveDrivers (args, driverConfig) {
   return _.compact(Object.keys(driverConfig.installedExtensions).filter((driverName) =>
@@ -182,10 +184,14 @@ function getExtraMethodMap (driverClasses, pluginClasses) {
  * await init(options);
  * const schema = getSchema(); // entire config schema including plugins and drivers
  * @param {ParsedArgs} [args] - Parsed args
- * @returns {Promise<Partial<{appiumDriver: AppiumDriver, parsedArgs: ParsedArgs}>>}
+ * @returns {Promise<Partial<{ appiumDriver: AppiumDriver, parsedArgs: ParsedArgs } & import('./manifest-io').ExtensionConfigs>>}
  */
 async function init (args) {
-  const parser = await getParser();
+  const appiumHome = await resolveAppiumHome();
+
+  const {driverConfig, pluginConfig} = await loadExtensions(appiumHome);
+
+  const parser = getParser();
   let throwInsteadOfExit = false;
   /** @type {ParsedArgs} */
   let parsedArgs;
@@ -228,11 +234,11 @@ async function init (args) {
   // if the user has requested the 'driver' CLI, don't run the normal server,
   // but instead pass control to the driver CLI
   if (parsedArgs.subcommand === DRIVER_TYPE) {
-    await runExtensionCommand(parsedArgs, parsedArgs.subcommand, driverConfig);
+    await runExtensionCommand(parsedArgs, driverConfig);
     return {};
   }
   if (parsedArgs.subcommand === PLUGIN_TYPE) {
-    await runExtensionCommand(parsedArgs, parsedArgs.subcommand, pluginConfig);
+    await runExtensionCommand(parsedArgs, pluginConfig);
     return {};
   }
 
@@ -264,9 +270,9 @@ async function init (args) {
  * @returns {Promise<import('express').Express|undefined>}
  */
 async function main (args) {
-  const {appiumDriver, parsedArgs} = await init(args);
+  const {appiumDriver, parsedArgs, pluginConfig, driverConfig} = await init(args);
 
-  if (!appiumDriver || !parsedArgs) {
+  if (!appiumDriver || !parsedArgs || !pluginConfig || !driverConfig) {
     // if this branch is taken, we've run a different subcommand, so there's nothing
     // left to do here.
     return;
@@ -355,10 +361,9 @@ if (require.main === module) {
 }
 
 // everything below here is intended to be a public API.
-export { main, init };
-export { APPIUM_HOME } from './extension-config';
-export { getSchema, validate, finalizeSchema } from './schema/schema';
 export { readConfigFile } from './config-file';
+export { finalizeSchema, getSchema, validate } from './schema/schema';
+export { main, init, resolveAppiumHome };
 
 /**
  * @typedef {import('../types/types').ParsedArgs} ParsedArgs

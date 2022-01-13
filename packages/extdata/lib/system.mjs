@@ -1,21 +1,17 @@
 /* eslint-disable promise/no-native */
-import { fs, system } from '@appium/support';
-import { execa } from 'execa';
+import {fs, system} from '@appium/support';
+import execa from 'execa';
 import _ from 'lodash';
-import { homedir } from 'os';
 import path from 'path';
 import resolveFrom from 'resolve-from';
-import { LOCAL_RELATIVE_MANIFEST_PATH } from './index.mjs';
+import {LOCAL_RELATIVE_MANIFEST_PATH} from './index.mjs';
 import {
-  appiumDependencyVersion, hasLocalAppium,
-  readPackageInDir
+  appiumDependencyVersion,
+  hasLocalAppium,
+  readPackageInDir,
 } from './utils.mjs';
 
-/**
- * @type {string}
- * @todo This should be defined in `@appium/support`, probably.
- */
-export const DEFAULT_APPIUM_HOME = path.join(homedir(), '.appium');
+export const {DEFAULT_APPIUM_HOME} = system;
 
 /**
  * @type {import('which')}
@@ -107,6 +103,25 @@ export async function getAppiumExecutableInfo (cwd = process.cwd()) {
 
 /**
  * Finds `appium` in `$PATH`, if it's in `$PATH`.
+ * @returns {Promise<AppiumLocalExecutableStatus & AppiumDependencyStatus & {cwd: string}>}
+ */
+export async function getLocalAppiumInfo (cwd = process.cwd()) {
+  const [dirResult, {dependencyVersion}] =
+    await Promise.all([locateAppiumInDir(cwd), locateAppiumDependency(cwd)]);
+
+  const result = _.mapValues(
+    dirResult,
+    (value) => {
+      if (!_.isUndefined(value)) {
+        return path.resolve(cwd, value);
+      }
+    },
+  );
+  return {...result, cwd, dependencyVersion};
+}
+
+/**
+ * Finds `appium` in `$PATH`, if it's in `$PATH`.
  * @returns {Promise<AppiumEnvExecutableStatus>}
  */
 async function locateAppiumInEnv () {
@@ -169,8 +184,8 @@ export async function resolveAppiumHome (cwd, status) {
   if (process.env.APPIUM_HOME) {
     return {home: process.env.APPIUM_HOME, fromEnv: true};
   }
-  status = status ?? (await getAppiumExecutableInfo(cwd));
-  if (status && (status.localExecutable || status.dependencyVersion)) {
+  status = status ?? (await getLocalAppiumInfo(cwd));
+  if (status?.localExecutable || status?.dependencyVersion) {
     return {
       home: path.join(cwd, path.dirname(LOCAL_RELATIVE_MANIFEST_PATH)),
       fromEnv: false,

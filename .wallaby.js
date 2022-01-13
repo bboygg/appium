@@ -53,6 +53,7 @@ module.exports = (wallaby) => {
     setup() {
       require('./test/setup');
     },
-    runMode: 'onsave'
+    runMode: 'onsave',
+    
   };
 };

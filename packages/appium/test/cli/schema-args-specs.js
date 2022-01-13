@@ -1,6 +1,6 @@
-import {rewiremock} from '../helpers';
 import sinon from 'sinon';
-import {finalizeSchema, resetSchema, SchemaFinalizationError} from '../../lib/schema/schema';
+import { finalizeSchema, resetSchema, SchemaFinalizationError } from '../../lib/schema/schema';
+import { rewiremock } from '../helpers';
 
 const expect = chai.expect;
 

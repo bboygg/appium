@@ -2,7 +2,7 @@
 
 import _ from 'lodash';
 import sinon from 'sinon';
-import { DRIVER_TYPE, PLUGIN_TYPE } from '../../lib/extension-config';
+import { DRIVER_TYPE, PLUGIN_TYPE } from '../../lib/constants';
 import appiumConfigSchema from '../../lib/schema/appium-config-schema';
 import { APPIUM_CONFIG_SCHEMA_ID } from '../../lib/schema/arg-spec';
 import defaultArgsFixture from '../fixtures/default-args';
@@ -35,6 +35,9 @@ describe('schema', function () {
 
   let mocks;
 
+  /** @type {typeof import('../../lib/schema/schema').ReadonlyMap} */
+  let ReadonlyMap;
+
   beforeEach(function () {
     sandbox = sinon.createSandbox();
 
@@ -47,6 +50,7 @@ describe('schema', function () {
     SchemaFinalizationError = schema.SchemaFinalizationError;
     SchemaUnknownSchemaError = schema.SchemaUnknownSchemaError;
     SchemaUnsupportedSchemaError = schema.SchemaUnsupportedSchemaError;
+    ReadonlyMap = schema.ReadonlyMap;
     schema.resetSchema();
   });
 
@@ -492,6 +496,35 @@ describe('schema', function () {
       });
     });
   });
+
+  describe('ReadonlyMap', function () {
+    it('should allow writing', function () {
+      const map = new ReadonlyMap();
+      (() => map.set('foo', 'bar')).should.not.throw();
+
+    });
+
+    it('should allow reading', function () {
+      const map = new ReadonlyMap([['foo', 'bar']]);
+      (() => map.get('foo')).should.not.throw();
+    });
+
+    it('should not allow deletion', function () {
+      const map = new ReadonlyMap([['foo', 'bar']]);
+      map.delete('foo').should.be.false;
+    });
+
+    it('should not allow clearing', function () {
+      const map = new ReadonlyMap([['foo', 'bar']]);
+      (() => map.clear()).should.throw();
+    });
+
+    it('should not allow updating', function () {
+      const map = new ReadonlyMap([['foo', 'bar']]);
+      (() => map.set('foo', 'baz')).should.throw();
+    });
+  });
+
 });
 
 /**
